@@ -25,7 +25,6 @@
     "build": "npm run build:host && npm run build:client",
     "build:host": "tsc -p tsconfig.json",
     "build:client": "tsdown -c tsdown.config.mjs",
-    "prepare": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "test": "tsx scripts/selftest.ts",
     "prepack": "npm run build"

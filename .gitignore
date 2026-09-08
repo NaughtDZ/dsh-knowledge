@@ -1,9 +1,10 @@
 node_modules/
-lib/
-client/
 dist/
 *.log
 .DS_Store
 data/
 .env
 scratch/
+# Build output is COMMITTED so that a `github:` dependency installs without
+# running any build script (pnpm blocks git-dep build scripts by default).
+# Rebuild with `pnpm run build` and commit lib/ + client/ after source changes.
