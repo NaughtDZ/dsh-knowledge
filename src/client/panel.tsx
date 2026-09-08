@@ -47,6 +47,13 @@ interface OperationView {
   failed: boolean
 }
 
+/** A DSH workspace (from the host workspaceRegistry). */
+interface WorkspaceInfo {
+  id: string
+  title: string
+  path: string
+}
+
 const DEFAULT_CONFIG: KnowledgeConfig = {
   endpointBaseUrl: 'http://127.0.0.1:1234/v1',
   embeddingModel: 'text-embedding-bge-m3',
@@ -68,6 +75,8 @@ export function KnowledgePanel({ t, onClose }: PanelProps): JSX.Element {
   const [selectedBase, setSelectedBase] = useState<string | null>(null)
   const [files, setFiles] = useState<KnowledgeFile[]>([])
   const [operations, setOperations] = useState<OperationView[]>([])
+  const [workspaces, setWorkspaces] = useState<WorkspaceInfo[]>([])
+  const [selectedWorkspace, setSelectedWorkspace] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const prevRunningRef = useRef(false)
@@ -81,17 +90,26 @@ export function KnowledgePanel({ t, onClose }: PanelProps): JSX.Element {
   const loadMounts = useCallback(async () => {
     try { setMounts(await getJson<WorkspaceMount[]>('/mounts')) } catch { /* ignore */ }
   }, [])
+  const loadWorkspaces = useCallback(async () => {
+    try {
+      const ws = await getJson<WorkspaceInfo[]>('/workspaces')
+      setWorkspaces(ws)
+    } catch { setWorkspaces([]) }
+  }, [])
   const loadFiles = useCallback(async (kbId: string) => {
     try { setFiles(await getJson<KnowledgeFile[]>(`/files?kbId=${encodeURIComponent(kbId)}`)) } catch { setFiles([]) }
   }, [])
 
-  useEffect(() => { void loadConfig(); void loadBases(); void loadMounts() }, [loadConfig, loadBases, loadMounts])
+  useEffect(() => { void loadConfig(); void loadBases(); void loadMounts(); void loadWorkspaces() }, [loadConfig, loadBases, loadMounts, loadWorkspaces])
   useEffect(() => {
     if (selectedBase !== null) void loadFiles(selectedBase)
     else setFiles([])
   }, [selectedBase, loadFiles])
+  useEffect(() => {
+    if (selectedWorkspace === '' && workspaces.length > 0) setSelectedWorkspace(workspaces[0]!.id)
+  }, [workspaces, selectedWorkspace])
 
-  const refreshAll = useCallback(async () => { await Promise.all([loadBases(), loadMounts()]) }, [loadBases, loadMounts])
+  const refreshAll = useCallback(async () => { await Promise.all([loadBases(), loadMounts(), loadWorkspaces()]) }, [loadBases, loadMounts, loadWorkspaces])
 
   // Poll quantization/import operations for a progress bar, and refresh once
   // a batch goes from running to idle.
@@ -152,18 +170,16 @@ export function KnowledgePanel({ t, onClose }: PanelProps): JSX.Element {
     } catch (err) { setNotice(`${file.name}: ${String(err)}`) } finally { setBusy(false); input.value = '' }
   }, [loadFiles, selectedBase])
 
-  const addMount = useCallback(async () => {
-    const kbId = prompt(t('mountKb'))
-    const workspaceId = prompt(t('mountWorkspace'))
-    if (kbId === null || workspaceId === null || kbId.trim() === '' || workspaceId.trim() === '') return
-    try { await postJson('/mounts', { kbId: kbId.trim(), workspaceId: workspaceId.trim(), enabled: true }); await loadMounts() } catch (e) { setNotice(String(e)) }
-  }, [loadMounts, t])
-
-  const toggleMount = useCallback(async (kbId: string, workspaceId: string, enabled: boolean) => {
-    try { await postJson('/mounts', { kbId, workspaceId, enabled: !enabled }); await loadMounts() } catch (e) { setNotice(String(e)) }
-  }, [loadMounts])
-
   const runningOps = useMemo(() => operations.filter(o => !o.finished), [operations])
+
+  // Toggle a knowledge base's mount for the selected workspace.
+  const toggleWorkspaceKb = useCallback(async (kbId: string, workspaceId: string, checked: boolean) => {
+    try {
+      if (checked) await postJson('/mounts', { kbId, workspaceId, enabled: true })
+      else await postJson('/mounts/delete', { kbId, workspaceId })
+      await loadMounts()
+    } catch (e) { setNotice(String(e)) }
+  }, [loadMounts])
 
   const startReindexBase = useCallback(async (kbId: string) => {
     setNotice(t('reindexBase') + '…')
@@ -288,18 +304,28 @@ export function KnowledgePanel({ t, onClose }: PanelProps): JSX.Element {
             )}
             <div style={STYLES.section}>
               <span style={{ ...STYLES.label, fontSize: 14, fontWeight: 600 }}>{t('mountsTitle')}</span>
-              <button style={STYLES.button} onClick={() => void addMount()}>{t('mountAdd')}</button>
-              <div>{mounts.length === 0 && <span style={STYLES.muted}>{t('empty')}</span>}</div>
-              {mounts.map(m => (
-                <div key={`${m.kbId}:${m.workspaceId}`} style={STYLES.row}>
-                  <span style={{ flex: 1 }}>{bases.find(b => b.id === m.kbId)?.name ?? m.kbId}</span>
-                  <span style={STYLES.chip}>{m.workspaceId}</span>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <input type="checkbox" checked={m.enabled} onChange={() => void toggleMount(m.kbId, m.workspaceId, m.enabled)} />
-                    {t('mountEnable')}
-                  </label>
-                </div>
-              ))}
+              {workspaces.length === 0
+                ? <div style={STYLES.hint}>{t('noWorkspaces')}</div>
+                : (
+                  <div>
+                    <label style={STYLES.label}>{t('mountWorkspace')}</label>
+                    <select style={STYLES.field} value={selectedWorkspace} onChange={e => setSelectedWorkspace(e.target.value)}>
+                      {workspaces.map(w => <option key={w.id} value={w.id}>{w.title}</option>)}
+                    </select>
+                    <label style={STYLES.label}>{t('mountKbs')}</label>
+                    {bases.length === 0 && <div style={STYLES.hint}>{t('noBasesYet')}</div>}
+                    {bases.map(b => {
+                      const mounted = mounts.some(m => m.kbId === b.id && m.workspaceId === selectedWorkspace && m.enabled)
+                      return (
+                        <label key={b.id} style={{ ...STYLES.row, borderBottom: 'none', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={mounted} onChange={e => void toggleWorkspaceKb(b.id, selectedWorkspace, e.target.checked)} />
+                          <span style={{ flex: 1 }}>{b.name}</span>
+                          <span style={STYLES.muted}>{b.fileCount} files · {b.chunkCount} chunks</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
             </div>
           </div>
         )}

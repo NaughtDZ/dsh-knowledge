@@ -44,10 +44,13 @@ window.__ModuleLoader__.load({
 				statusPending: "等待中",
 				statusFailed: "失败",
 				mountsTitle: "工作区挂载",
-				mountWorkspace: "工作区 ID",
+				mountWorkspace: "工作区",
 				mountKb: "知识库",
+				mountKbs: "挂载到该工作区的知识库（可多选）",
 				mountEnable: "启用",
 				mountAdd: "添加挂载",
+				noWorkspaces: "暂无可用工作区，请先在 DSH 打开/创建一个工作区。",
+				noBasesYet: "还没有知识库，请先创建。",
 				searchPlaceholder: "输入要检索的问题…",
 				search: "检索",
 				searching: "检索中…",
@@ -97,9 +100,12 @@ window.__ModuleLoader__.load({
 				statusPending: "Pending",
 				statusFailed: "Failed",
 				mountsTitle: "Workspace mounts",
-				mountWorkspace: "Workspace ID",
+				mountWorkspace: "Workspace",
 				mountKb: "Knowledge base",
+				mountKbs: "Knowledge bases to mount here (multi-select)",
 				mountEnable: "Enabled",
+				noWorkspaces: "No workspaces yet — open/create one in DSH first.",
+				noBasesYet: "No knowledge bases yet — create one first.",
 				mountAdd: "Add mount",
 				searchPlaceholder: "Type a question to search…",
 				search: "Search",
@@ -295,6 +301,8 @@ window.__ModuleLoader__.load({
 			const [selectedBase, setSelectedBase] = (0, react.useState)(null);
 			const [files, setFiles] = (0, react.useState)([]);
 			const [operations, setOperations] = (0, react.useState)([]);
+			const [workspaces, setWorkspaces] = (0, react.useState)([]);
+			const [selectedWorkspace, setSelectedWorkspace] = (0, react.useState)("");
 			const [notice, setNotice] = (0, react.useState)("");
 			const [busy, setBusy] = (0, react.useState)(false);
 			const prevRunningRef = (0, react.useRef)(false);
@@ -315,6 +323,14 @@ window.__ModuleLoader__.load({
 					setMounts(await getJson("/mounts"));
 				} catch {}
 			}, []);
+			const loadWorkspaces = (0, react.useCallback)(async () => {
+				try {
+					const ws = await getJson("/workspaces");
+					setWorkspaces(ws);
+				} catch {
+					setWorkspaces([]);
+				}
+			}, []);
 			const loadFiles = (0, react.useCallback)(async (kbId) => {
 				try {
 					setFiles(await getJson(`/files?kbId=${encodeURIComponent(kbId)}`));
@@ -326,18 +342,31 @@ window.__ModuleLoader__.load({
 				loadConfig();
 				loadBases();
 				loadMounts();
+				loadWorkspaces();
 			}, [
 				loadConfig,
 				loadBases,
-				loadMounts
+				loadMounts,
+				loadWorkspaces
 			]);
 			(0, react.useEffect)(() => {
 				if (selectedBase !== null) loadFiles(selectedBase);
 				else setFiles([]);
 			}, [selectedBase, loadFiles]);
+			(0, react.useEffect)(() => {
+				if (selectedWorkspace === "" && workspaces.length > 0) setSelectedWorkspace(workspaces[0].id);
+			}, [workspaces, selectedWorkspace]);
 			const refreshAll = (0, react.useCallback)(async () => {
-				await Promise.all([loadBases(), loadMounts()]);
-			}, [loadBases, loadMounts]);
+				await Promise.all([
+					loadBases(),
+					loadMounts(),
+					loadWorkspaces()
+				]);
+			}, [
+				loadBases,
+				loadMounts,
+				loadWorkspaces
+			]);
 			(0, react.useEffect)(() => {
 				const id = setInterval(async () => {
 					try {
@@ -438,34 +467,23 @@ window.__ModuleLoader__.load({
 					input.value = "";
 				}
 			}, [loadFiles, selectedBase]);
-			const addMount = (0, react.useCallback)(async () => {
-				const kbId = prompt(t("mountKb"));
-				const workspaceId = prompt(t("mountWorkspace"));
-				if (kbId === null || workspaceId === null || kbId.trim() === "" || workspaceId.trim() === "") return;
+			const runningOps = (0, react.useMemo)(() => operations.filter((o) => !o.finished), [operations]);
+			const toggleWorkspaceKb = (0, react.useCallback)(async (kbId, workspaceId, checked) => {
 				try {
-					await postJson("/mounts", {
-						kbId: kbId.trim(),
-						workspaceId: workspaceId.trim(),
-						enabled: true
-					});
-					await loadMounts();
-				} catch (e) {
-					setNotice(String(e));
-				}
-			}, [loadMounts, t]);
-			const toggleMount = (0, react.useCallback)(async (kbId, workspaceId, enabled) => {
-				try {
-					await postJson("/mounts", {
+					if (checked) await postJson("/mounts", {
 						kbId,
 						workspaceId,
-						enabled: !enabled
+						enabled: true
+					});
+					else await postJson("/mounts/delete", {
+						kbId,
+						workspaceId
 					});
 					await loadMounts();
 				} catch (e) {
 					setNotice(String(e));
 				}
 			}, [loadMounts]);
-			const runningOps = (0, react.useMemo)(() => operations.filter((o) => !o.finished), [operations]);
 			const startReindexBase = (0, react.useCallback)(async (kbId) => {
 				setNotice(t("reindexBase") + "…");
 				try {
@@ -840,50 +858,69 @@ window.__ModuleLoader__.load({
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 									style: STYLES.section,
-									children: [
-										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-											style: {
-												...STYLES.label,
-												fontSize: 14,
-												fontWeight: 600
-											},
-											children: t("mountsTitle")
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										style: {
+											...STYLES.label,
+											fontSize: 14,
+											fontWeight: 600
+										},
+										children: t("mountsTitle")
+									}), workspaces.length === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+										style: STYLES.hint,
+										children: t("noWorkspaces")
+									}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("label", {
+											style: STYLES.label,
+											children: t("mountWorkspace")
 										}),
-										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											style: STYLES.button,
-											onClick: () => void addMount(),
-											children: t("mountAdd")
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("select", {
+											style: STYLES.field,
+											value: selectedWorkspace,
+											onChange: (e) => setSelectedWorkspace(e.target.value),
+											children: workspaces.map((w) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+												value: w.id,
+												children: w.title
+											}, w.id))
 										}),
-										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", { children: mounts.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-											style: STYLES.muted,
-											children: t("empty")
-										}) }),
-										mounts.map((m) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-											style: STYLES.row,
-											children: [
-												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-													style: { flex: 1 },
-													children: bases.find((b) => b.id === m.kbId)?.name ?? m.kbId
-												}),
-												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-													style: STYLES.chip,
-													children: m.workspaceId
-												}),
-												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-													style: {
-														display: "flex",
-														alignItems: "center",
-														gap: 6
-													},
-													children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("label", {
+											style: STYLES.label,
+											children: t("mountKbs")
+										}),
+										bases.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+											style: STYLES.hint,
+											children: t("noBasesYet")
+										}),
+										bases.map((b) => {
+											const mounted = mounts.some((m) => m.kbId === b.id && m.workspaceId === selectedWorkspace && m.enabled);
+											return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+												style: {
+													...STYLES.row,
+													borderBottom: "none",
+													cursor: "pointer"
+												},
+												children: [
+													/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
 														type: "checkbox",
-														checked: m.enabled,
-														onChange: () => void toggleMount(m.kbId, m.workspaceId, m.enabled)
-													}), t("mountEnable")]
-												})
-											]
-										}, `${m.kbId}:${m.workspaceId}`))
-									]
+														checked: mounted,
+														onChange: (e) => void toggleWorkspaceKb(b.id, selectedWorkspace, e.target.checked)
+													}),
+													/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+														style: { flex: 1 },
+														children: b.name
+													}),
+													/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+														style: STYLES.muted,
+														children: [
+															b.fileCount,
+															" files · ",
+															b.chunkCount,
+															" chunks"
+														]
+													})
+												]
+											}, b.id);
+										})
+									] })]
 								})
 							] }),
 							tab === "search" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(SearchTab, {

@@ -13,7 +13,8 @@ async function main() {
   engine.createBase('接口测试库', 'desc')
 
   const routes = []
-  const disposer = mountKnowledgeRoutes({ register: (route) => { routes.push(route); return () => {} } }, engine)
+  const listWorkspaces = () => [{ id: 'ws-1', title: 'Workspace One', path: 'C:/ws1' }, { id: 'ws-2', title: 'Workspace Two', path: 'C:/ws2' }]
+  const disposer = mountKnowledgeRoutes({ register: (route) => { routes.push(route); return () => {} } }, engine, listWorkspaces)
   if (disposer === undefined) throw new Error('routes not mounted')
   if (routes.length !== 1 || routes[0].kind !== 'prefix' || routes[0].path !== '/knowledge') {
     throw new Error('unexpected routes: ' + JSON.stringify(routes.map(r => ({ kind: r.kind, path: r.path }))))
@@ -42,6 +43,22 @@ async function main() {
   await handler(makeReq('POST', '/knowledge/search', JSON.stringify({ query: '测试', workspaceId: 'w' })), res)
   const search = JSON.parse(res.body)
   console.log(`POST /knowledge/search -> ${res.status} count=${search.count}`)
+
+  res = makeRes()
+  await handler(makeReq('GET', '/knowledge/workspaces'), res)
+  const workspaces = JSON.parse(res.body)
+  console.log(`GET /knowledge/workspaces -> ${res.status} count=${workspaces.length} first=${workspaces[0]?.title}`)
+
+  res = makeRes()
+  await handler(makeReq('POST', '/knowledge/mounts', JSON.stringify({ kbId: bases[0].id, workspaceId: 'ws-1', enabled: true })), res)
+  res = makeRes()
+  await handler(makeReq('GET', '/knowledge/mounts'), res)
+  console.log(`POST /knowledge/mounts -> mounts=${JSON.parse(res.body).length}`)
+  res = makeRes()
+  await handler(makeReq('POST', '/knowledge/mounts/delete', JSON.stringify({ kbId: bases[0].id, workspaceId: 'ws-1' })), res)
+  res = makeRes()
+  await handler(makeReq('GET', '/knowledge/mounts'), res)
+  console.log(`POST /knowledge/mounts/delete -> mounts=${JSON.parse(res.body).length}`)
 
   if (disposer !== undefined) disposer()
   engine.close()

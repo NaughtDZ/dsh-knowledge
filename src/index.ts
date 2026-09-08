@@ -42,10 +42,21 @@ export async function apply(ctx: Context, entryConfig: Partial<Config>): Promise
 
   // The same-origin API routes ride a webServer sub-fiber; reading the service
   // directly would silently skip the mount when the web server is absent.
+  // Workspaces come from the host workspaceRegistry (optional; absent → empty).
   ctx.inject(['webServer'], (webCtx) => {
     const webServer = webCtx.get('webServer') as { register(route: unknown): () => void } | undefined
+    const listWorkspaces = (): Array<{ id: string; title: string; path: string }> => {
+      try {
+        const registry = webCtx.get('workspaceRegistry', false) as
+          | { list(): Array<{ id: string; title: string; path: string }> }
+          | undefined
+        return registry?.list().map(w => ({ id: String(w.id), title: w.title, path: w.path })) ?? []
+      } catch {
+        return []
+      }
+    }
     const buffer: Array<() => void> = []
-    const disposer = mountKnowledgeRoutes(webServer as never, engine)
+    const disposer = mountKnowledgeRoutes(webServer as never, engine, listWorkspaces)
     if (disposer !== undefined) buffer.push(disposer)
     if (buffer.length > 0) {
       ctx.effect(() => () => { for (const dispose of buffer) dispose() }, 'dsh-knowledge: routes')

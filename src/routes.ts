@@ -173,11 +173,30 @@ async function reindexAll(engine: KnowledgeEngine, _req: IncomingMessage, res: S
   sendJson(res, 200, { operationId })
 }
 
+/** GET `/knowledge/workspaces` — { id, title, path }[] from the host registry. */
+function getWorkspaces(listWorkspaces: (() => Array<{ id: string; title: string; path: string }>) | undefined, res: ServerResponse): void {
+  sendJson(res, 200, listWorkspaces !== undefined ? listWorkspaces() : [])
+}
+
+/** POST `/knowledge/mounts/delete` — { kbId, workspaceId }. */
+async function deleteMount(engine: KnowledgeEngine, req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const body = asObject(await readJsonBody(req))
+  const kbId = typeof body['kbId'] === 'string' ? body['kbId'] : ''
+  const workspaceId = typeof body['workspaceId'] === 'string' ? body['workspaceId'] : ''
+  if (kbId === '' || workspaceId === '') return sendError(res, 400, 'kbId and workspaceId are required')
+  engine.deleteMount(kbId, workspaceId)
+  sendJson(res, 200, { ok: true })
+}
+
 /**
  * Mount the knowledge API routes on the web server.
  * @returns a disposer removing the routes, or undefined when no web server.
  */
-export function mountKnowledgeRoutes(webServer: WebServerLike | undefined, engine: KnowledgeEngine): (() => void) | undefined {
+export function mountKnowledgeRoutes(
+  webServer: WebServerLike | undefined,
+  engine: KnowledgeEngine,
+  listWorkspaces?: () => Array<{ id: string; title: string; path: string }>,
+): (() => void) | undefined {
   if (webServer === undefined) return undefined
   const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (!sameOrigin(req)) return sendError(res, 403, 'forbidden')
@@ -197,6 +216,8 @@ export function mountKnowledgeRoutes(webServer: WebServerLike | undefined, engin
       if (method === 'POST' && tail === 'files/delete') return deleteFile(engine, req, res)
       if (method === 'GET' && tail === 'mounts') return getMounts(engine, res)
       if (method === 'POST' && tail === 'mounts') return setMount(engine, req, res)
+      if (method === 'POST' && tail === 'mounts/delete') return deleteMount(engine, req, res)
+      if (method === 'GET' && tail === 'workspaces') return getWorkspaces(listWorkspaces, res)
       if (method === 'POST' && tail === 'search') return search(engine, req, res)
       if (method === 'GET' && tail === 'health') return health(engine, res)
       if (method === 'GET' && tail === 'operations') return getOperations(engine, res)

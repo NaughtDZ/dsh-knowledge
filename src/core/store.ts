@@ -307,6 +307,10 @@ export class KnowledgeStore {
     return { kbId, workspaceId, enabled, note, createdAt: now }
   }
 
+  deleteMount(kbId: string, workspaceId: string): void {
+    this.db.prepare('DELETE FROM mounts WHERE kb_id = ? AND workspace_id = ?').run(kbId, workspaceId)
+  }
+
   mounts(): WorkspaceMount[] {
     const rows = this.db.prepare('SELECT * FROM mounts').all() as unknown as Array<Record<string, unknown>>
     return rows.map(r => ({

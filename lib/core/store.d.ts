@@ -28,6 +28,7 @@ export declare class KnowledgeStore {
     chunkIds(kbIds: string[]): string[];
     private fileNames;
     setMount(kbId: string, workspaceId: string, enabled: boolean, note?: string): WorkspaceMount;
+    deleteMount(kbId: string, workspaceId: string): void;
     mounts(): WorkspaceMount[];
     workspaceKbIds(workspaceId: string): string[];
     /** Return candidate search hits (text + vector) for the given KBs. */

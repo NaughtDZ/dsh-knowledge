@@ -86,6 +86,7 @@ export declare class KnowledgeEngine {
     /** Re-embed every file in every knowledge base; returns the operation id. */
     reindexAll(): string;
     setMount(kbId: string, workspaceId: string, enabled: boolean, note?: string): WorkspaceMount;
+    deleteMount(kbId: string, workspaceId: string): void;
     mounts(): WorkspaceMount[];
     workspaceKbIds(workspaceId: string): string[];
     search(query: string, options?: SearchOptions): Promise<SearchHit[]>;

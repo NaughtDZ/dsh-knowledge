@@ -17,5 +17,9 @@ interface WebServerLike {
  * Mount the knowledge API routes on the web server.
  * @returns a disposer removing the routes, or undefined when no web server.
  */
-export declare function mountKnowledgeRoutes(webServer: WebServerLike | undefined, engine: KnowledgeEngine): (() => void) | undefined;
+export declare function mountKnowledgeRoutes(webServer: WebServerLike | undefined, engine: KnowledgeEngine, listWorkspaces?: () => Array<{
+    id: string;
+    title: string;
+    path: string;
+}>): (() => void) | undefined;
 export {};

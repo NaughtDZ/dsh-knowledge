@@ -283,6 +283,10 @@ export class KnowledgeEngine {
     return this.store.setMount(kbId, workspaceId, enabled, note)
   }
 
+  deleteMount(kbId: string, workspaceId: string): void {
+    this.store.deleteMount(kbId, workspaceId)
+  }
+
   mounts(): WorkspaceMount[] {
     return this.store.mounts()
   }
