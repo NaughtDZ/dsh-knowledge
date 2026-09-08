@@ -10,13 +10,19 @@ A knowledge-base (RAG) plugin for DeepSeek Harness. Import Office & text documen
 
 - 📁 **导入并保存文件** — 支持 `doc/docx`、`ppt/pptx`、`xls/xlsx`（ZIP+XML，完整提取），以及 `txt/md/csv/html`（**编码感知**：UTF-8/UTF-16、GB18030/GBK、Windows-1252、Big5、Shift_JIS；统一 **CRLF/LF→LF**）。旧版二进制 `doc/ppt/xls` 做**尽力而为**提取。原始文件也会持久化。
 - 🔎 **任意 OpenAI 兼容嵌入接口** — 支持 LM Studio / Ollama / 本地或托管服务；可配置 `baseURL`、`model`、`apiKey`。
+- <img width="1173" height="1207" alt="image" src="https://github.com/user-attachments/assets/40524db0-eed4-4ddf-977d-dcda15caa2f0" />
+
 - ▶️ **导入自动量化 + 进度条 + 停止** — 导入即自动嵌入；面板实时显示**进度条**（文件数 + 分块数），运行中可点击**停止**中断。
 - 🔁 **手动重新量化** — 每个知识库一个「重新量化」按钮 + 一个「全部重新量化」按钮（用当前嵌入模型重算全体，可停止）。
 - 🧠 **重排模型（可选）** — 调用 `/rerank` 端点做二次排序；接口不支持时自动回退到向量相似度。
 - 🧹 **自动清理** — UI 内删除知识库/文件会同步清除嵌入与磁盘上的原始文件；**卸载插件**时自动删除插件数据目录。
 - 📚 **知识库** — 一个知识库包含多个导入文件。
 - 🗂 **工作区挂载** — 列表式：先选一个**工作区**，再在它下面用**复选框多选**该工作区启用的知识库（无需手输 ID）。
+- <img width="1146" height="1166" alt="image" src="https://github.com/user-attachments/assets/64e22f71-dacc-4f08-baf3-1c7d0c3ee89a" />
+
 - 🤖 **agent 工具** — 提供 `knowledge_search` 工具，agent 自动检索当前/指定工作区已启用的知识库。
+- <img width="1146" height="1169" alt="image" src="https://github.com/user-attachments/assets/83186f18-339f-46cb-a862-7ee7cd6f94a1" />
+
 - 🎛 **DSH 设置悬浮窗** — 知识库管理器注册为 DSH **设置菜单里的一个 section**（和设置菜单一样是悬浮弹窗），不占用侧边栏、不与其它插件的侧边栏 / UI 重叠，内含配置 / 知识库 / 工作区挂载 / 检索测试。
 
 ---
