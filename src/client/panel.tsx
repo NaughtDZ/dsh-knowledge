@@ -3,7 +3,7 @@
  * management, workspace mounts, and a live search test. Pure React with
  * inline styles (theme-agnostic) so it needs no CSS build step.
  */
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import type { KnowledgeBase, KnowledgeConfig, KnowledgeFile, SearchHit, WorkspaceMount } from '../core/types.ts'
 import { getJson, postJson, uploadFile } from './api.ts'
 import type { Translate } from './i18n.ts'
@@ -31,6 +31,22 @@ const STYLES = {
 
 type Tab = 'config' | 'bases' | 'search'
 
+/** Mirrors the host OperationView (import/reindex) wire shape. */
+interface OperationView {
+  id: string
+  kind: 'import' | 'reindex-base' | 'reindex-all'
+  label: string
+  total: number
+  done: number
+  chunkTotal: number
+  chunkDone: number
+  current: string
+  progress: number
+  startedAt: number
+  finished: boolean
+  failed: boolean
+}
+
 const DEFAULT_CONFIG: KnowledgeConfig = {
   endpointBaseUrl: 'http://127.0.0.1:1234/v1',
   embeddingModel: 'text-embedding-bge-m3',
@@ -51,8 +67,10 @@ export function KnowledgePanel({ t, onClose }: PanelProps): JSX.Element {
   const [mounts, setMounts] = useState<WorkspaceMount[]>([])
   const [selectedBase, setSelectedBase] = useState<string | null>(null)
   const [files, setFiles] = useState<KnowledgeFile[]>([])
+  const [operations, setOperations] = useState<OperationView[]>([])
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  const prevRunningRef = useRef(false)
 
   const loadConfig = useCallback(async () => {
     try { setConfig(await getJson<KnowledgeConfig>('/config')) } catch { setConfig(DEFAULT_CONFIG) }
@@ -74,6 +92,24 @@ export function KnowledgePanel({ t, onClose }: PanelProps): JSX.Element {
   }, [selectedBase, loadFiles])
 
   const refreshAll = useCallback(async () => { await Promise.all([loadBases(), loadMounts()]) }, [loadBases, loadMounts])
+
+  // Poll quantization/import operations for a progress bar, and refresh once
+  // a batch goes from running to idle.
+  useEffect(() => {
+    const id = setInterval(async () => {
+      try {
+        const ops = await getJson<OperationView[]>('/operations')
+        setOperations(ops)
+        const anyRunning = ops.some(o => !o.finished)
+        if (prevRunningRef.current && !anyRunning) {
+          await Promise.all([loadBases(), loadMounts()])
+          if (selectedBase !== null) await loadFiles(selectedBase)
+        }
+        prevRunningRef.current = anyRunning
+      } catch { /* ignore */ }
+    }, 1000)
+    return () => clearInterval(id)
+  }, [loadBases, loadMounts, loadFiles, selectedBase])
 
   const saveConfig = useCallback(async () => {
     setBusy(true); setNotice('')
@@ -126,6 +162,22 @@ export function KnowledgePanel({ t, onClose }: PanelProps): JSX.Element {
   const toggleMount = useCallback(async (kbId: string, workspaceId: string, enabled: boolean) => {
     try { await postJson('/mounts', { kbId, workspaceId, enabled: !enabled }); await loadMounts() } catch (e) { setNotice(String(e)) }
   }, [loadMounts])
+
+  const runningOps = useMemo(() => operations.filter(o => !o.finished), [operations])
+
+  const startReindexBase = useCallback(async (kbId: string) => {
+    setNotice(t('reindexBase') + '…')
+    try { await postJson<{ operationId: string }>('/reindex', { kbId }) } catch (e) { setNotice(String(e)) }
+  }, [t])
+
+  const startReindexAll = useCallback(async () => {
+    setNotice(t('reindexAll') + '…')
+    try { await postJson<{ operationId: string }>('/reindex-all') } catch (e) { setNotice(String(e)) }
+  }, [t])
+
+  const stopOperations = useCallback(async () => {
+    try { await postJson('/stop'); setNotice(t('stopped')) } catch (e) { setNotice(String(e)) }
+  }, [t])
 
   const setCfg = useCallback((patch: Partial<KnowledgeConfig>) => setConfig(c => ({ ...c, ...patch })), [])
 
@@ -184,14 +236,36 @@ export function KnowledgePanel({ t, onClose }: PanelProps): JSX.Element {
 
         {tab === 'bases' && (
           <div>
+            {runningOps.length > 0 && (
+              <div style={STYLES.section}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontWeight: 600 }}>{t('quantizing')}</span>
+                  <button style={STYLES.button} onClick={() => void stopOperations()}>{t('stop')}</button>
+                </div>
+                {runningOps.map(op => (
+                  <div key={op.id} style={{ marginTop: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.label}{op.current !== '' ? ` — ${op.current}` : ''}</span>
+                      <span style={STYLES.muted}>{Math.round(op.progress * 100)}%</span>
+                    </div>
+                    <div style={{ height: 6, borderRadius: 3, background: 'var(--dsw-alias-bg-layer-3, #333)', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${(op.progress * 100).toFixed(1)}%`, background: '#4f6ef7', transition: 'width .3s' }} />
+                    </div>
+                    <div style={STYLES.hint}>{t('progressFiles', `${op.done}/${op.total} 文件 · ${op.chunkDone}/${op.chunkTotal} 块`)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div style={STYLES.section}>
               <button style={STYLES.button} onClick={() => void createBase()}>{t('createBase')}</button>
+              <button style={{ ...STYLES.button, marginLeft: 8 }} onClick={() => void startReindexAll()}>{t('reindexAll')}</button>
               <div>{bases.length === 0 && <span style={STYLES.muted}>{t('empty')}</span>}</div>
               {bases.map(b => (
                 <div key={b.id} style={STYLES.row}>
                   <button style={STYLES.button} onClick={() => setSelectedBase(b.id)}>{b.name}</button>
                   <span style={STYLES.chip}>{b.fileCount} files · {b.chunkCount} chunks</span>
                   <span style={STYLES.muted}>{b.description}</span>
+                  <button style={STYLES.button} onClick={() => void startReindexBase(b.id)}>{t('reindexBase')}</button>
                   <button style={STYLES.button} onClick={() => void deleteBase(b.id)}>{t('delete')}</button>
                 </div>
               ))}

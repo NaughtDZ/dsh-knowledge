@@ -140,6 +140,39 @@ function health(engine: KnowledgeEngine, res: ServerResponse): void {
   sendJson(res, 200, { ok: true, baseCount: bases.length, fileCount })
 }
 
+/** GET `/knowledge/operations` — live operations with progress. */
+function getOperations(engine: KnowledgeEngine, res: ServerResponse): void {
+  sendJson(res, 200, engine.activeOperations())
+}
+
+/** POST `/knowledge/operations/stop` — { operationId }. */
+async function stopOperation(engine: KnowledgeEngine, req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const body = asObject(await readJsonBody(req))
+  const id = typeof body['operationId'] === 'string' ? body['operationId'] : ''
+  if (id === '') return sendError(res, 400, 'operationId is required')
+  sendJson(res, 200, { ok: engine.stopOperation(id) })
+}
+
+/** POST `/knowledge/stop` — abort every running import/reindex. */
+async function stopAllOperations(engine: KnowledgeEngine, _req: IncomingMessage, res: ServerResponse): Promise<void> {
+  sendJson(res, 200, { ok: true, stopped: engine.stopAll() })
+}
+
+/** POST `/knowledge/reindex` — { kbId } re-embeds one base; returns operationId. */
+async function reindexBase(engine: KnowledgeEngine, req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const body = asObject(await readJsonBody(req))
+  const kbId = typeof body['kbId'] === 'string' ? body['kbId'] : ''
+  if (kbId === '') return sendError(res, 400, 'kbId is required')
+  const operationId = engine.reindexBase(kbId)
+  sendJson(res, 200, { operationId })
+}
+
+/** POST `/knowledge/reindex-all` — re-embeds every base; returns operationId. */
+async function reindexAll(engine: KnowledgeEngine, _req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const operationId = engine.reindexAll()
+  sendJson(res, 200, { operationId })
+}
+
 /**
  * Mount the knowledge API routes on the web server.
  * @returns a disposer removing the routes, or undefined when no web server.
@@ -166,6 +199,11 @@ export function mountKnowledgeRoutes(webServer: WebServerLike | undefined, engin
       if (method === 'POST' && tail === 'mounts') return setMount(engine, req, res)
       if (method === 'POST' && tail === 'search') return search(engine, req, res)
       if (method === 'GET' && tail === 'health') return health(engine, res)
+      if (method === 'GET' && tail === 'operations') return getOperations(engine, res)
+      if (method === 'POST' && tail === 'operations/stop') return stopOperation(engine, req, res)
+      if (method === 'POST' && tail === 'stop') return stopAllOperations(engine, req, res)
+      if (method === 'POST' && tail === 'reindex') return reindexBase(engine, req, res)
+      if (method === 'POST' && tail === 'reindex-all') return reindexAll(engine, req, res)
       return sendError(res, 404, 'unknown knowledge route')
     } catch (error) {
       return sendError(res, 400, errorMessage(error))

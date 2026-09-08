@@ -18,7 +18,7 @@ export async function getJson<T = unknown>(path: string): Promise<T> {
   return json<T>(response)
 }
 
-export async function postJson<T = unknown>(path: string, body: unknown): Promise<T> {
+export async function postJson<T = unknown>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/knowledge${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'application/json' },

@@ -17,6 +17,7 @@
   "files": [
     "lib",
     "client",
+    "scripts",
     "cordis.patch.yml",
     "README.md",
     "LICENSE"
@@ -27,6 +28,8 @@
     "build:client": "tsdown -c tsdown.config.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "test": "tsx scripts/selftest.ts",
+    "uninstall": "node scripts/uninstall-cleanup.mjs",
+    "postuninstall": "node scripts/uninstall-cleanup.mjs",
     "prepack": "npm run build"
   },
   "keywords": [

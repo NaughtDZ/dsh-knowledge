@@ -51,6 +51,12 @@ const dictionary: Record<Lang, Record<string, DictValue>> = {
     noBase: '请先选择一个知识库',
     loading: '加载中…',
     close: '关闭',
+    reindexBase: '重新量化',
+    reindexAll: '全部重新量化',
+    quantizing: '量化中',
+    stop: '停止',
+    stopped: '已停止',
+    progressFiles: (s?: string) => s ?? '',
   },
   en: {
     title: 'Knowledge Base',
@@ -98,6 +104,12 @@ const dictionary: Record<Lang, Record<string, DictValue>> = {
     noBase: 'Select a knowledge base first',
     loading: 'Loading…',
     close: 'Close',
+    reindexBase: 'Re-embed',
+    reindexAll: 'Re-embed all',
+    quantizing: 'Quantizing',
+    stop: 'Stop',
+    stopped: 'Stopped',
+    progressFiles: (s?: string) => s ?? '',
   },
 }
 

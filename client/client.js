@@ -53,7 +53,13 @@ window.__ModuleLoader__.load({
 				searching: "检索中…",
 				noBase: "请先选择一个知识库",
 				loading: "加载中…",
-				close: "关闭"
+				close: "关闭",
+				reindexBase: "重新量化",
+				reindexAll: "全部重新量化",
+				quantizing: "量化中",
+				stop: "停止",
+				stopped: "已停止",
+				progressFiles: (s) => s ?? ""
 			},
 			en: {
 				title: "Knowledge Base",
@@ -100,7 +106,13 @@ window.__ModuleLoader__.load({
 				searching: "Searching…",
 				noBase: "Select a knowledge base first",
 				loading: "Loading…",
-				close: "Close"
+				close: "Close",
+				reindexBase: "Re-embed",
+				reindexAll: "Re-embed all",
+				quantizing: "Quantizing",
+				stop: "Stop",
+				stopped: "Stopped",
+				progressFiles: (s) => s ?? ""
 			}
 		};
 		function getLang() {
@@ -282,8 +294,10 @@ window.__ModuleLoader__.load({
 			const [mounts, setMounts] = (0, react.useState)([]);
 			const [selectedBase, setSelectedBase] = (0, react.useState)(null);
 			const [files, setFiles] = (0, react.useState)([]);
+			const [operations, setOperations] = (0, react.useState)([]);
 			const [notice, setNotice] = (0, react.useState)("");
 			const [busy, setBusy] = (0, react.useState)(false);
+			const prevRunningRef = (0, react.useRef)(false);
 			const loadConfig = (0, react.useCallback)(async () => {
 				try {
 					setConfig(await getJson("/config"));
@@ -324,6 +338,26 @@ window.__ModuleLoader__.load({
 			const refreshAll = (0, react.useCallback)(async () => {
 				await Promise.all([loadBases(), loadMounts()]);
 			}, [loadBases, loadMounts]);
+			(0, react.useEffect)(() => {
+				const id = setInterval(async () => {
+					try {
+						const ops = await getJson("/operations");
+						setOperations(ops);
+						const anyRunning = ops.some((o) => !o.finished);
+						if (prevRunningRef.current && !anyRunning) {
+							await Promise.all([loadBases(), loadMounts()]);
+							if (selectedBase !== null) await loadFiles(selectedBase);
+						}
+						prevRunningRef.current = anyRunning;
+					} catch {}
+				}, 1e3);
+				return () => clearInterval(id);
+			}, [
+				loadBases,
+				loadMounts,
+				loadFiles,
+				selectedBase
+			]);
 			const saveConfig = (0, react.useCallback)(async () => {
 				setBusy(true);
 				setNotice("");
@@ -431,6 +465,31 @@ window.__ModuleLoader__.load({
 					setNotice(String(e));
 				}
 			}, [loadMounts]);
+			const runningOps = (0, react.useMemo)(() => operations.filter((o) => !o.finished), [operations]);
+			const startReindexBase = (0, react.useCallback)(async (kbId) => {
+				setNotice(t("reindexBase") + "…");
+				try {
+					await postJson("/reindex", { kbId });
+				} catch (e) {
+					setNotice(String(e));
+				}
+			}, [t]);
+			const startReindexAll = (0, react.useCallback)(async () => {
+				setNotice(t("reindexAll") + "…");
+				try {
+					await postJson("/reindex-all");
+				} catch (e) {
+					setNotice(String(e));
+				}
+			}, [t]);
+			const stopOperations = (0, react.useCallback)(async () => {
+				try {
+					await postJson("/stop");
+					setNotice(t("stopped"));
+				} catch (e) {
+					setNotice(String(e));
+				}
+			}, [t]);
 			const setCfg = (0, react.useCallback)((patch) => setConfig((c) => ({
 				...c,
 				...patch
@@ -608,6 +667,65 @@ window.__ModuleLoader__.load({
 								})
 							] }),
 							tab === "bases" && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", { children: [
+								runningOps.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									style: STYLES.section,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+										style: {
+											display: "flex",
+											alignItems: "center",
+											gap: 12
+										},
+										children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+											style: { fontWeight: 600 },
+											children: t("quantizing")
+										}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											style: STYLES.button,
+											onClick: () => void stopOperations(),
+											children: t("stop")
+										})]
+									}), runningOps.map((op) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+										style: { marginTop: 8 },
+										children: [
+											/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+												style: {
+													display: "flex",
+													gap: 8,
+													alignItems: "baseline"
+												},
+												children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+													style: {
+														flex: 1,
+														overflow: "hidden",
+														textOverflow: "ellipsis",
+														whiteSpace: "nowrap"
+													},
+													children: [op.label, op.current !== "" ? ` — ${op.current}` : ""]
+												}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+													style: STYLES.muted,
+													children: [Math.round(op.progress * 100), "%"]
+												})]
+											}),
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+												style: {
+													height: 6,
+													borderRadius: 3,
+													background: "var(--dsw-alias-bg-layer-3, #333)",
+													overflow: "hidden"
+												},
+												children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", { style: {
+													height: "100%",
+													width: `${(op.progress * 100).toFixed(1)}%`,
+													background: "#4f6ef7",
+													transition: "width .3s"
+												} })
+											}),
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+												style: STYLES.hint,
+												children: t("progressFiles", `${op.done}/${op.total} 文件 · ${op.chunkDone}/${op.chunkTotal} 块`)
+											})
+										]
+									}, op.id))]
+								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 									style: STYLES.section,
 									children: [
@@ -615,6 +733,14 @@ window.__ModuleLoader__.load({
 											style: STYLES.button,
 											onClick: () => void createBase(),
 											children: t("createBase")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											style: {
+												...STYLES.button,
+												marginLeft: 8
+											},
+											onClick: () => void startReindexAll(),
+											children: t("reindexAll")
 										}),
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", { children: bases.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 											style: STYLES.muted,
@@ -640,6 +766,11 @@ window.__ModuleLoader__.load({
 												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 													style: STYLES.muted,
 													children: b.description
+												}),
+												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+													style: STYLES.button,
+													onClick: () => void startReindexBase(b.id),
+													children: t("reindexBase")
 												}),
 												/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 													style: STYLES.button,
