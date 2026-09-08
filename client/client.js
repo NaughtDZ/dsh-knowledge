@@ -163,7 +163,6 @@ window.__ModuleLoader__.load({
 		const STYLES = {
 			container: {
 				width: "100%",
-				height: "100%",
 				display: "flex",
 				flexDirection: "column",
 				fontSize: 13,
@@ -184,7 +183,8 @@ window.__ModuleLoader__.load({
 			tabs: {
 				display: "flex",
 				gap: 4,
-				padding: "8px 16px"
+				padding: "8px 16px",
+				borderBottom: "1px solid var(--dsw-alias-border, #2a2a2a)"
 			},
 			tab: {
 				padding: "6px 14px",
@@ -199,11 +199,7 @@ window.__ModuleLoader__.load({
 				color: "var(--dsw-alias-label-primary, #eee)",
 				border: "1px solid var(--dsw-alias-border, #555)"
 			},
-			body: {
-				padding: "12px 16px",
-				overflow: "auto",
-				flex: 1
-			},
+			body: { padding: "12px 16px" },
 			section: { marginBottom: 16 },
 			label: {
 				display: "block",
@@ -861,68 +857,17 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region src/client/index.ts
 		/**
-		* dsh-knowledge client half: registers the sidebar footer action (opens the
-		* panel drawer) and the Settings section page. Registered through slots.inject
-		* so contributions wait on the real slot declarations and unwind with this
-		* plugin's fiber.
+		* dsh-knowledge client half: registers the knowledge-base manager as a page in
+		* the DSH settings menu (the same floating modal geometry as every other
+		* settings section), so it never competes with other plugins' sidebar entries.
+		* Registered through slots.inject so contributions wait on the real slot
+		* declarations and unwind with this plugin's fiber.
 		*/
 		const name = "dsh-knowledge";
 		const inject = ["slots"];
-		const PANEL_STYLE = {
-			position: "fixed",
-			inset: "0 0 0 auto",
-			width: "min(920px, 92vw)",
-			zIndex: 200,
-			boxShadow: "0 0 40px rgba(0,0,0,.5)"
-		};
-		/** A trigger in the sidebar foot that opens the knowledge panel drawer. */
-		function KnowledgeFooterAction({ wide }) {
-			const t = makeT(getLang());
-			const [open, setOpen] = (0, react.useState)(false);
-			return (0, react.createElement)("div", { style: {
-				display: "flex",
-				flexDirection: "column",
-				alignItems: "center"
-			} }, (0, react.createElement)("button", {
-				title: t("title"),
-				onClick: () => setOpen((o) => !o),
-				style: {
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
-					gap: 6,
-					width: wide ? "100%" : 36,
-					height: 32,
-					borderRadius: 8,
-					border: "1px solid var(--dsw-alias-border, #444)",
-					background: "transparent",
-					color: "var(--dsw-alias-label-primary, #ddd)",
-					cursor: "pointer"
-				}
-			}, (0, react.createElement)("svg", {
-				width: 16,
-				height: 16,
-				viewBox: "0 0 24 24",
-				fill: "none",
-				stroke: "currentColor",
-				strokeWidth: 2
-			}, (0, react.createElement)("path", { d: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5v13z" }), (0, react.createElement)("path", { d: "M9 9h6M9 13h6" })), wide ? (0, react.createElement)("span", {}, t("title")) : null), open ? (0, react.createElement)("div", {
-				style: PANEL_STYLE,
-				onClick: (e) => e.stopPropagation()
-			}, (0, react.createElement)(KnowledgePanel, {
-				t,
-				onClose: () => setOpen(false)
-			})) : null);
-		}
 		function apply(ctx) {
 			const t = makeT(getLang());
 			ctx.effect(() => () => void 0, "dsh-knowledge: client");
-			ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
-				name: "sidebar.footer.action",
-				id: "knowledge-panel",
-				order: 50,
-				label: () => t("title")
-			}, (props) => (0, react.createElement)(KnowledgeFooterAction, { wide: (props ?? {}).wide === true })));
 			ctx.slots.inject("settings.section", () => ctx.slots.register({
 				name: "settings.section",
 				id: "knowledge",

@@ -9,13 +9,13 @@ import { getJson, postJson, uploadFile } from './api.ts'
 import type { Translate } from './i18n.ts'
 
 const STYLES = {
-  container: { width: '100%', height: '100%', display: 'flex', flexDirection: 'column' as const, fontSize: 13, color: 'var(--dsw-alias-label-primary, #d4d4d4)', background: 'var(--dsw-alias-bg-layer-1, #1e1e1e)' },
+  container: { width: '100%', display: 'flex', flexDirection: 'column' as const, fontSize: 13, color: 'var(--dsw-alias-label-primary, #d4d4d4)', background: 'var(--dsw-alias-bg-layer-1, #1e1e1e)' },
   header: { padding: '12px 16px', borderBottom: '1px solid var(--dsw-alias-border, #333)', display: 'flex', alignItems: 'center', gap: 12 },
   title: { fontSize: 16, fontWeight: 600 },
-  tabs: { display: 'flex', gap: 4, padding: '8px 16px' },
+  tabs: { display: 'flex', gap: 4, padding: '8px 16px', borderBottom: '1px solid var(--dsw-alias-border, #2a2a2a)' },
   tab: { padding: '6px 14px', borderRadius: 6, cursor: 'pointer', background: 'transparent', color: 'var(--dsw-alias-label-secondary, #999)', border: '1px solid transparent' },
   tabActive: { background: 'var(--dsw-alias-bg-layer-2, #333)', color: 'var(--dsw-alias-label-primary, #eee)', border: '1px solid var(--dsw-alias-border, #555)' },
-  body: { padding: '12px 16px', overflow: 'auto', flex: 1 },
+  body: { padding: '12px 16px' },
   section: { marginBottom: 16 },
   label: { display: 'block', fontSize: 12, color: 'var(--dsw-alias-label-secondary, #999)', margin: '8px 0 4px' },
   field: { width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--dsw-alias-border, #444)', background: 'var(--dsw-alias-bg-layer-2, #222)', color: 'var(--dsw-alias-label-primary, #eee)', boxSizing: 'border-box' as const },
