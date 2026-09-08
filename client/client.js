@@ -873,10 +873,7 @@ window.__ModuleLoader__.load({
 				id: "knowledge",
 				order: 40,
 				label: () => t("title")
-			}, (props) => (0, react.createElement)(KnowledgePanel, {
-				t,
-				onClose: (props ?? {}).close
-			})));
+			}, () => (0, react.createElement)(KnowledgePanel, { t })));
 		}
 		//#endregion
 		exports.apply = apply;

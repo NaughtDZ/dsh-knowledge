@@ -27,9 +27,9 @@ export function apply(ctx: KnowledgeClientContext): void {
   ctx.effect(() => () => undefined, 'dsh-knowledge: client')
 
   // The DSH settings floating window (same modal as every settings section).
-  // The owner passes `close`, which we hand to the panel as onClose.
+  // The settings modal owns its own close chrome, so we pass no onClose.
   ctx.slots.inject('settings.section', () => ctx.slots.register(
     { name: 'settings.section', id: 'knowledge', order: 40, label: () => t('title') },
-    (props: unknown) => h(KnowledgePanel, { t, onClose: ((props ?? {}) as { close?: () => void }).close }),
+    () => h(KnowledgePanel, { t }),
   ))
 }
