@@ -4,9 +4,9 @@
  * Everything tears down with the plugin fiber.
  */
 import type { Context } from '@deepseek-ai/cordis';
-import { defaultDataDir, resolveConfig, Config } from './config.ts';
+import { defaultDataDir, resolveConfig, migrateLegacyDataDir, Config } from './config.ts';
 export declare const name = "dsh-knowledge";
-export { defaultDataDir, resolveConfig, Config };
+export { defaultDataDir, resolveConfig, migrateLegacyDataDir, Config };
 /** Services required before the plugin can mount. */
 export declare const inject: string[];
 /**

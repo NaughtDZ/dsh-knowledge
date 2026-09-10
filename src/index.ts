@@ -8,12 +8,12 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { join } from 'node:path'
 import { KnowledgeEngine } from './core/engine.ts'
-import { defaultDataDir, resolveConfig, Config } from './config.ts'
+import { defaultDataDir, resolveConfig, migrateLegacyDataDir, Config } from './config.ts'
 import { mountKnowledgeRoutes } from './routes.ts'
 import { registerKnowledgeTool } from './tool.ts'
 
 export const name = 'dsh-knowledge'
-export { defaultDataDir, resolveConfig, Config }
+export { defaultDataDir, resolveConfig, migrateLegacyDataDir, Config }
 
 /** Services required before the plugin can mount. */
 export const inject = ['tools']
@@ -29,6 +29,8 @@ interface ToolRegistry {
  */
 export async function apply(ctx: Context, entryConfig: Partial<Config>): Promise<void> {
   const config = resolveConfig(entryConfig)
+  // One-time: move a legacy relative ./dsh-knowledge dir (old builds) into place.
+  migrateLegacyDataDir(config.dataDir)
   const engine = new KnowledgeEngine({
     dbPath: join(config.dataDir, 'knowledge.sqlite'),
     filesRoot: config.filesRoot,

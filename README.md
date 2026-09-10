@@ -99,13 +99,15 @@ knowledge_search(query, { workspace?, kbId?, topK? })
 
 ### 目录 / Data layout
 
-数据放在 `$DSH_HOME/data/dsh-knowledge/`（可用 cordis 行 `config.dataDir` 覆盖）：
+数据放在 **`<DSH_HOME>/data/dsh-knowledge/`**（`DSH_HOME` 未设置时回退到 `~/.dsh`；可用 cordis 行 `config.dataDir` 覆盖）。路径**始终是绝对路径**，绝不写入 harness 检出目录：
 
 ```
-data/dsh-knowledge/
+<DSH_HOME>/data/dsh-knowledge/
   knowledge.sqlite      # 知识库/文件/分块/向量/挂载 的 SQLite 数据库
   files/<kbId>/<fileId>/<name>   # 原始上传文件的副本
 ```
+
+> 早期版本在 `DSH_HOME` 缺失时会退回相对路径 `./dsh-knowledge`（落在进程 CWD，即 harness 目录）。现在启动时会**自动把该遗留目录迁移**到上面的规范位置并删除旧目录，已有数据不会丢。
 
 ---
 
