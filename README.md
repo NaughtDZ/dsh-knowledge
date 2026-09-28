@@ -54,6 +54,29 @@ dsh plugin --profile web add dsh-knowledge
 
 > 加入 bundle 集后需**重启该 profile** 才生效（DSH 不会热加载新 bundle）。
 
+### 兼容性 / Compatibility
+
+本插件用 `peerDependencies` 声明它支持的 DSH 版本。DSH ≥ 0.2 会在加载 bundle **之前**校验这些声明，**不满足的 bundle 会被静默跳过** —— 表现是插件「消失了」（设置里没有入口、`/knowledge/*` 路由 404），但 DSH 本身启动正常、不报错。
+
+| 插件版本 | 兼容的 DSH |
+| --- | --- |
+| `0.1.1` 及以后 | 旧线 `>=0.1.2-alpha.4 <0.2.0`，以及当前线 `>=0.2.0-rc.0 <0.3.0`（含 `0.2.0-rc.1`） |
+| `0.1.0` | 只声明了旧线（`^0.1.2-alpha.4`），会被 DSH `0.2.x` 拒绝加载 |
+
+DSH 进入新的 minor 线（如 `0.3.0`）后，本插件需要重新声明范围并发布新版本。
+
+查看当前 profile 已授予的精确版本豁免：
+
+```bash
+dsh plugin --profile web version-exemptions
+```
+
+若某个插件版本与当前 DSH 暂时不匹配、又需要先行验证，可用 DSH 的**精确版本豁免**（只对「该 `包@版本` + 该 DSH 版本」这一对生效）：
+
+```bash
+dsh plugin --profile web allow-version dsh-knowledge@0.1.1 --dsh-version 0.2.0-rc.1 --accept-risk
+```
+
 ---
 
 ## 使用 / Usage
