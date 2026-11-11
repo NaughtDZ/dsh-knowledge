@@ -60,10 +60,25 @@ dsh plugin --profile web add dsh-knowledge
 
 | 插件版本 | 兼容的 DSH |
 | --- | --- |
-| `0.1.1` 及以后 | 旧线 `>=0.1.2-alpha.4 <0.2.0`，以及当前线 `>=0.2.0-rc.0 <0.3.0`（含 `0.2.0-rc.1`） |
+| `0.1.2` 及以后 | 旧线 `>=0.1.2-alpha.4 <0.2.0-0`，当前线 `>=0.2.0-rc.0 <0.3.0-0` |
+| `0.1.1` | 上界写成 `<0.2.0` / `<0.3.0`，会把 `0.2.0-rc.*`、`0.3.0-rc.*` 一并放行（见下） |
 | `0.1.0` | 只声明了旧线（`^0.1.2-alpha.4`），会被 DSH `0.2.x` 拒绝加载 |
 
+**为什么上界要带 `-0`**：`<0.3.0` 仍然接受 `0.3.0-rc.1`（预发布版排序低于同号正式版），等于给未验证的下一条线连同它的所有预发布版开了口子。`<0.3.0-0` 才是真正封住整条线的上界 —— `0.3.0-0` 是该线最小的预发布版，任何 `0.3.0-*` 都不小于它。
+
 DSH 进入新的 minor 线（如 `0.3.0`）后，本插件需要重新声明范围并发布新版本。
+
+### 兼容性体检 / Compatibility check
+
+升级 DSH 前后跑一次，确认插件还进得来（DSH 拒收时是**静默**的，只看日志发现不了）：
+
+```bash
+node scripts/verify-dsh-compat.mjs            # peer / 平台 / 客户端依赖 / 数据 / 运行中路由
+node scripts/verify-dsh-compat.mjs --search   # 再加一次真实向量检索（需嵌入服务在线）
+node scripts/verify-dsh-compat.mjs --json     # 机器可读，便于 CI
+```
+
+它复刻 DSH 的准入判定（`peerDependencies` 里的 `@deepseek-ai/dsh*`、`dsh.bundle.platforms`、`dsh.client.inject`），DSH 版本直接读 `@deepseek-ai/dsh-app-boot` 的 `package.json`（可用 `--dsh-version=` 覆盖）；peer 范围优先用真实 `semver` 求值，解析不到时退回 `scripts/lib/semver-lite.mjs`（已与官方 semver 对拍 342 组一致）。退出码 `0` = 全部通过，`1` = 会被 DSH 拒收。
 
 查看当前 profile 已授予的精确版本豁免：
 
@@ -71,10 +86,10 @@ DSH 进入新的 minor 线（如 `0.3.0`）后，本插件需要重新声明范�
 dsh plugin --profile web version-exemptions
 ```
 
-若某个插件版本与当前 DSH 暂时不匹配、又需要先行验证，可用 DSH 的**精确版本豁免**（只对「该 `包@版本` + 该 DSH 版本」这一对生效）：
+若某个插件版本与当前 DSH 暂时不匹配、又需要先行验证，可用 DSH 的**精确版本豁免**（只对「该 `包@版本` + 该 DSH 版本」这一对生效，把版本换成你自己的）：
 
 ```bash
-dsh plugin --profile web allow-version dsh-knowledge@0.1.1 --dsh-version 0.2.0-rc.1 --accept-risk
+dsh plugin --profile web allow-version dsh-knowledge@0.1.2 --dsh-version 0.2.2-rc.1 --accept-risk
 ```
 
 ---
