@@ -1,0 +1,179 @@
+# dsh-knowledge
+
+一个运行在 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) 里的**知识库 / RAG 插件**。像 Cherry Studio 的知识库一样：把本地的 Office 与文本资料导入、通过任意 **OpenAI 兼容接口**（如 LM Studio、Ollama）用你设定的嵌入模型**向量化**，然后在指定工作区**启用**，让 agent 在运行时用**向量检索**（可选的**重排模型**）回答你的问题。
+
+A knowledge-base (RAG) plugin for DeepSeek Harness. Import Office & text documents, vectorize them through any OpenAI-compatible endpoint (e.g. LM Studio), enable them per workspace, and let the agent run vector search (with optional rerank).
+
+---
+
+## 功能特性 / Features
+
+- 📁 **导入并保存文件** — 支持 `doc/docx`、`ppt/pptx`、`xls/xlsx`（ZIP+XML，完整提取），以及 `txt/md/csv/html`（**编码感知**：UTF-8/UTF-16、GB18030/GBK、Windows-1252、Big5、Shift_JIS；统一 **CRLF/LF→LF**）。旧版二进制 `doc/ppt/xls` 做**尽力而为**提取。原始文件也会持久化。
+- 🔎 **任意 OpenAI 兼容嵌入接口** — 支持 LM Studio / Ollama / 本地或托管服务；可配置 `baseURL`、`model`、`apiKey`。
+- <img width="1173" height="1207" alt="image" src="https://github.com/user-attachments/assets/40524db0-eed4-4ddf-977d-dcda15caa2f0" />
+
+- ▶️ **导入自动量化 + 进度条 + 停止** — 导入即自动嵌入；面板实时显示**进度条**（文件数 + 分块数），运行中可点击**停止**中断。
+- 🔁 **手动重新量化** — 每个知识库一个「重新量化」按钮 + 一个「全部重新量化」按钮（用当前嵌入模型重算全体，可停止）。
+- 🧠 **重排模型（可选）** — 调用 `/rerank` 端点做二次排序；接口不支持时自动回退到向量相似度。
+- 🧹 **自动清理** — UI 内删除知识库/文件会同步清除嵌入与磁盘上的原始文件；**卸载插件**时自动删除插件数据目录。
+- 📚 **知识库** — 一个知识库包含多个导入文件。
+- 🗂 **工作区挂载** — 列表式：先选一个**工作区**，再在它下面用**复选框多选**该工作区启用的知识库（无需手输 ID）。
+- <img width="1146" height="1166" alt="image" src="https://github.com/user-attachments/assets/64e22f71-dacc-4f08-baf3-1c7d0c3ee89a" />
+
+- 🤖 **agent 工具** — 提供 `knowledge_search` 工具，agent 自动检索当前/指定工作区已启用的知识库。
+- <img width="1146" height="1169" alt="image" src="https://github.com/user-attachments/assets/83186f18-339f-46cb-a862-7ee7cd6f94a1" />
+
+- 🎛 **DSH 设置悬浮窗** — 知识库管理器注册为 DSH **设置菜单里的一个 section**（和设置菜单一样是悬浮弹窗），不占用侧边栏、不与其它插件的侧边栏 / UI 重叠，内含配置 / 知识库 / 工作区挂载 / 检索测试。
+
+---
+
+## 支持的输入格式 / Supported inputs
+
+| 格式 | 提取方式 | 说明 |
+|---|---|---|
+| `.docx` `.pptx` `.xlsx` | ZIP+XML 解析（纯 Node，无外部依赖） | 高保真：段落/表格/幻灯片内容 |
+| `.txt` `.md` `.csv` `.html` | 编码感知解码 + 标签剥离（html） | 处理 ANSI/UTF-8、CRLF/LF |
+| `.doc` `.ppt` `.xls` | OLE2 最佳努力文本提取 | 有限保真，建议转换为新格式 |
+
+> 说明：不用任何运行时外部依赖（无 mammoth/pdf-parse/xlsx 等），文本提取、ZIP 解压、XML 解析、向量检索全部内置，仅靠 Node 内置能力（`node:sqlite`、`node:zlib`、`node:util` 的 `TextDecoder`）。PDF 暂不支持。
+
+---
+
+## 安装 / Install
+
+要求：DSH (Node ≥ 22.19)，以及一个 OpenAI 兼容的 `/v1/embeddings` 端点（如 LM Studio，端口一般为 `http://127.0.0.1:1234/v1`）。
+
+在目标 profile（如 `web`）中添加该插件：
+
+```bash
+# 从本仓库 clone 后（或用发布的 npm 包）
+dsh plugin --profile web add dsh-knowledge
+```
+
+或在 profile 的 `package.json` 中把 `dsh-knowledge` 加入 `dependencies`，并把 `dsh-knowledge` 加入 `dsh.profile.bundles`。插件通过 `cordis.patch.yml` 插入 `knowledge` 行，并注册同源 `/knowledge/*` 路由。
+
+> 加入 bundle 集后需**重启该 profile** 才生效（DSH 不会热加载新 bundle）。
+
+### 兼容性 / Compatibility
+
+本插件用 `peerDependencies` 声明它支持的 DSH 版本。DSH ≥ 0.2 会在加载 bundle **之前**校验这些声明，**不满足的 bundle 会被静默跳过** —— 表现是插件「消失了」（设置里没有入口、`/knowledge/*` 路由 404），但 DSH 本身启动正常、不报错。
+
+| 插件版本 | 兼容的 DSH |
+| --- | --- |
+| `0.1.2` 及以后 | 旧线 `>=0.1.2-alpha.4 <0.2.0-0`，当前线 `>=0.2.0-rc.0 <0.3.0-0` |
+| `0.1.1` | 上界写成 `<0.2.0` / `<0.3.0`，会把 `0.2.0-rc.*`、`0.3.0-rc.*` 一并放行（见下） |
+| `0.1.0` | 只声明了旧线（`^0.1.2-alpha.4`），会被 DSH `0.2.x` 拒绝加载 |
+
+**为什么上界要带 `-0`**：`<0.3.0` 仍然接受 `0.3.0-rc.1`（预发布版排序低于同号正式版），等于给未验证的下一条线连同它的所有预发布版开了口子。`<0.3.0-0` 才是真正封住整条线的上界 —— `0.3.0-0` 是该线最小的预发布版，任何 `0.3.0-*` 都不小于它。
+
+DSH 进入新的 minor 线（如 `0.3.0`）后，本插件需要重新声明范围并发布新版本。
+
+### 兼容性体检 / Compatibility check
+
+升级 DSH 前后跑一次，确认插件还进得来（DSH 拒收时是**静默**的，只看日志发现不了）：
+
+```bash
+node scripts/verify-dsh-compat.mjs            # peer / 平台 / 客户端依赖 / 数据 / 运行中路由
+node scripts/verify-dsh-compat.mjs --search   # 再加一次真实向量检索（需嵌入服务在线）
+node scripts/verify-dsh-compat.mjs --json     # 机器可读，便于 CI
+```
+
+它复刻 DSH 的准入判定（`peerDependencies` 里的 `@deepseek-ai/dsh*`、`dsh.bundle.platforms`、`dsh.client.inject`），DSH 版本直接读 `@deepseek-ai/dsh-app-boot` 的 `package.json`（可用 `--dsh-version=` 覆盖）；peer 范围优先用真实 `semver` 求值，解析不到时退回 `scripts/lib/semver-lite.mjs`（已与官方 semver 对拍 342 组一致）。退出码 `0` = 全部通过，`1` = 会被 DSH 拒收。
+
+查看当前 profile 已授予的精确版本豁免：
+
+```bash
+dsh plugin --profile web version-exemptions
+```
+
+若某个插件版本与当前 DSH 暂时不匹配、又需要先行验证，可用 DSH 的**精确版本豁免**（只对「该 `包@版本` + 该 DSH 版本」这一对生效，把版本换成你自己的）：
+
+```bash
+dsh plugin --profile web allow-version dsh-knowledge@0.1.2 --dsh-version 0.2.2-rc.1 --accept-risk
+```
+
+---
+
+## 使用 / Usage
+
+1. **打开面板** — 打开 DSH 设置（侧边栏底部的齿轮），左侧导航选择「知识库」。它和设置菜单一样是悬浮弹窗，不与其它插件的侧边栏重叠。
+2. **配置嵌入** — 在「配置」页填：OpenAI 兼容接口地址、嵌入模型、可选 API Key、可选重排模型；点「测试连接」验证。
+3. **创建知识库并导入文件** — 「知识库」页新建一个库，选择一个库后「导入文件」（支持多选/拖拽，浏览器文件选择）。导入后**自动开始量化**，面板顶部显示**进度条**；运行中可点「停止」中断。
+4. **重新量化** — 更换嵌入模型后，可对单个知识库点「重新量化」，或点右上「全部重新量化」用当前模型重算全体（同样可停止、看进度）。
+5. **挂载到工作区** — 「知识库」页底部「工作区挂载」：先在下拉框**选工作区**，再用**复选框多选**该工作区要启用的知识库（勾选即挂载、取消即卸载；工作区列表来自 DSH 的 workspaceRegistry）。
+6. **删除/卸载清理** — 删除知识库/文件会同步清除嵌入与原始文件；卸载插件（`dsh plugin remove`）会自动删除插件数据目录。
+7. **agent 检索** — 模型在运行时自动拥有 `knowledge_search` 工具；你也可以在「检索」页手动测试。
+
+### agent 工具 `knowledge_search`
+
+```
+knowledge_search(query, { workspace?, kbId?, topK? })
+```
+
+- `query`：检索问题（必填）。
+- `workspace`：按此工作区已启用的知识库检索（推荐）。
+- `kbId`：只检索某个知识库（优先于 workspace）。
+- `topK`：返回条数。
+
+返回每个命中块的知识库/文件名/文本/相似度/重排分。
+
+---
+
+## 配置 / Configuration
+
+面板「配置」页（持久化到插件自身的 SQLite）：
+
+| 字段 | 说明 | 默认 |
+|---|---|---|
+| `endpointBaseUrl` | OpenAI 兼容接口地址（含 `/v1`） | `http://127.0.0.1:1234/v1` |
+| `embeddingModel` | 嵌入模型名 | `text-embedding-bge-m3` |
+| `apiKey` | 可选 API Key | `''` |
+| `rerankModel` | 可选重排模型名，空 = 关闭 | `''` |
+| `rerankEndpoint` | 可选重排接口地址，空 = 用上面那个 | `''` |
+| `chunkSize` | 分块大小（字符） | `1200` |
+| `chunkOverlap` | 分块重叠（字符） | `150` |
+| `defaultTopK` | 默认检索条数 | `5` |
+| `stripMarkup` | 导入时是否剥离 HTML 标签 | `true` |
+
+### 目录 / Data layout
+
+数据放在 **`<DSH_HOME>/data/dsh-knowledge/`**（`DSH_HOME` 未设置时回退到 `~/.dsh`；可用 cordis 行 `config.dataDir` 覆盖）。路径**始终是绝对路径**，绝不写入 harness 检出目录：
+
+```
+<DSH_HOME>/data/dsh-knowledge/
+  knowledge.sqlite      # 知识库/文件/分块/向量/挂载 的 SQLite 数据库
+  files/<kbId>/<fileId>/<name>   # 原始上传文件的副本
+```
+
+> 早期版本在 `DSH_HOME` 缺失时会退回相对路径 `./dsh-knowledge`（落在进程 CWD，即 harness 目录）。现在启动时会**自动把该遗留目录迁移**到上面的规范位置并删除旧目录，已有数据不会丢。
+
+---
+
+## 从源码构建 / Build from source
+
+```bash
+pnpm install
+pnpm build       # build:host (tsc -> lib/) + build:client (tsdown -> client/client.js)
+pnpm test        # 运行核心自测（需本地 LM Studio 提供 /v1/embeddings）
+```
+
+输出：`lib/`（宿主侧）+ `client/client.js`（浏览器侧）+ `cordis.patch.yml`。
+
+---
+
+## 架构 / Architecture
+
+- **宿主侧** `src/index.ts`（函数插件）：注册 `knowledge_search` 工具、同源 `/knowledge/*` HTTP 路由、打开引擎。
+  - `src/core/*`：**纯 Node、无 DSH 依赖** 的知识引擎（文件提取/编码/分块/嵌入/向量检索/重排/SQLite 存储）。
+  - `src/routes.ts`：REST 路由（config/bases/files/mounts/search）。
+  - `src/tool.ts`：`knowledge_search` 工具。
+- **浏览器侧** `src/client/*`：只注册一个 `settings.section`（id `knowledge`），即设置里的「知识库」浮动页；**没有侧边栏入口**。
+- **IPC**：浏览器侧用 `fetch('/knowledge/...')` 直接调宿主同源路由（宿主通过 `ctx.webServer.register({ kind: 'prefix', path: '/knowledge' })` 挂载）。
+- **无外部运行时依赖**：只用 `node:sqlite`、`node:zlib`、`node:util`(TextDecoder)。
+- **开发者请看 [HANDOFF.md](HANDOFF.md)**：模块职责、数据模型、HTTP 全表、构建发布流程与十条已知陷阱。
+
+---
+
+## License
+
+MIT

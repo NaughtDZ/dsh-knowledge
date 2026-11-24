@@ -2,9 +2,19 @@ node_modules/
 dist/
 *.log
 .DS_Store
-data/
 .env
 scratch/
-# Build output is COMMITTED so that a `github:` dependency installs without
-# running any build script (pnpm blocks git-dep build scripts by default).
-# Rebuild with `pnpm run build` and commit lib/ + client/ after source changes.
+
+# 插件运行期的数据不落在仓库里（默认在 Tavern 数据目录的 dsh-tavern-knowledge/）
+data/
+exports/
+tmp/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# 注意：lib/ 与 client.js 必须提交。
+# Tavern 直接加载这两个入口，不跑构建，也不要要求用户装依赖。
+
+# 工具生成的目录元数据，不进版本库
+.chorography/
