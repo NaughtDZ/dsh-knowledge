@@ -167,9 +167,10 @@ pnpm test        # 运行核心自测（需本地 LM Studio 提供 /v1/embedding
   - `src/core/*`：**纯 Node、无 DSH 依赖** 的知识引擎（文件提取/编码/分块/嵌入/向量检索/重排/SQLite 存储）。
   - `src/routes.ts`：REST 路由（config/bases/files/mounts/search）。
   - `src/tool.ts`：`knowledge_search` 工具。
-- **浏览器侧** `src/client/*`：`sidebar.footer.action` 入口 + 面板抽屉，以及 `settings.section` 设置页。
-- **IPC**：浏览器侧通过 `fetch('/knowledge/...')` 调用宿主同源路由（DSH 自带网关承载）。
+- **浏览器侧** `src/client/*`：只注册一个 `settings.section`（id `knowledge`），即设置里的「知识库」浮动页；**没有侧边栏入口**。
+- **IPC**：浏览器侧用 `fetch('/knowledge/...')` 直接调宿主同源路由（宿主通过 `ctx.webServer.register({ kind: 'prefix', path: '/knowledge' })` 挂载）。
 - **无外部运行时依赖**：只用 `node:sqlite`、`node:zlib`、`node:util`(TextDecoder)。
+- **开发者请看 [HANDOFF.md](HANDOFF.md)**：模块职责、数据模型、HTTP 全表、构建发布流程与十条已知陷阱。
 
 ---
 
